@@ -29,6 +29,18 @@ def save_auth_token(token):
     with open(token_file, 'w') as f:
         f.write(token)
 
+def verify_ngrok_api(max_retries=3, delay=2):
+    """Verify ngrok API is accessible with retries"""
+    for i in range(max_retries):
+        try:
+            response = requests.get("http://localhost:4040/api/tunnels")
+            if response.status_code == 200:
+                return True
+        except:
+            if i < max_retries - 1:  # Don't sleep on last attempt
+                time.sleep(delay)
+    return False
+
 def setup_ngrok_auth():
     # First try to load existing token
     token = load_auth_token()
@@ -39,13 +51,39 @@ def setup_ngrok_auth():
             result = subprocess.run(['ngrok', 'config', 'add-authtoken', token], 
                                  capture_output=True, text=True)
             if result.returncode == 0:
+                # Start a test tunnel to verify token
+                test_process = None
                 try:
-                    # Verify token works by checking API
-                    requests.get("http://localhost:4040/api/tunnels")
-                    print("✓ Using saved auth token")
-                    return True
-                except:
-                    print("× Saved auth token is not working")
+                    # Kill any existing ngrok processes first
+                    if os.name == 'nt':
+                        os.system('taskkill /f /im ngrok.exe 2>nul')
+                    else:
+                        os.system('pkill ngrok')
+                    
+                    time.sleep(1)
+                    
+                    # Start ngrok with test tunnel
+                    if os.name == 'nt':
+                        test_process = subprocess.Popen(f"ngrok http 9999", shell=True, 
+                                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    else:
+                        test_process = subprocess.Popen(['ngrok', 'http', '9999'], 
+                                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    
+                    # Wait and verify API is accessible
+                    if verify_ngrok_api():
+                        print("✓ Using saved auth token")
+                        return True
+                    else:
+                        print("× Saved auth token is not working")
+                finally:
+                    if test_process:
+                        test_process.terminate()
+                        time.sleep(1)
+                        if os.name == 'nt':
+                            os.system('taskkill /f /im ngrok.exe 2>nul')
+                        else:
+                            os.system('pkill ngrok')
             else:
                 print("× Saved auth token is invalid")
         except Exception as e:
@@ -66,9 +104,40 @@ def setup_ngrok_auth():
                 result = subprocess.run(['ngrok', 'config', 'add-authtoken', token], 
                                      capture_output=True, text=True)
                 if result.returncode == 0:
-                    print("✓ Auth token configured successfully")
-                    save_auth_token(token)  # Save the working token
-                    return True
+                    # Verify the new token works
+                    test_process = None
+                    try:
+                        # Kill any existing ngrok processes
+                        if os.name == 'nt':
+                            os.system('taskkill /f /im ngrok.exe 2>nul')
+                        else:
+                            os.system('pkill ngrok')
+                        
+                        time.sleep(1)
+                        
+                        # Start test tunnel
+                        if os.name == 'nt':
+                            test_process = subprocess.Popen(f"ngrok http 9999", shell=True, 
+                                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        else:
+                            test_process = subprocess.Popen(['ngrok', 'http', '9999'], 
+                                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        
+                        if verify_ngrok_api():
+                            print("✓ Auth token configured successfully")
+                            save_auth_token(token)  # Save the working token
+                            return True
+                        else:
+                            print("× Auth token verification failed")
+                            return False
+                    finally:
+                        if test_process:
+                            test_process.terminate()
+                            time.sleep(1)
+                            if os.name == 'nt':
+                                os.system('taskkill /f /im ngrok.exe 2>nul')
+                            else:
+                                os.system('pkill ngrok')
                 else:
                     print(f"× Error configuring auth token: {result.stderr}")
                     return False
@@ -108,25 +177,11 @@ def generate_ngrok(platform):
             print(f"× Error installing ngrok: {str(e)}")
             return None
             
-    # Setup ngrok configuration
-    print("\nNgrok Configuration:")
-    print("[1] Use auth token")
-    print("[2] Use custom domain")
-    config_choice = input("Enter your choice: ").strip()
-    
-    if config_choice == '1':
-        if not setup_ngrok_auth():
-            return None
-        return serve_website(platform, 'ngrok')
-    elif config_choice == '2':
-        domain = input("\nEnter your custom domain (e.g., login.example.com): ").strip()
-        if not domain:
-            print("× No domain provided")
-            return None
-        return serve_website(platform, 'ngrok', domain)
-    else:
-        print("Invalid choice!")
+    # Setup ngrok authentication if needed
+    if not setup_ngrok_auth():
         return None
+    
+    return serve_website(platform)
 
 def serve_website(platform):
     # Get the absolute path to the web directory
@@ -151,29 +206,20 @@ def serve_website(platform):
     try:
         # Start a simple HTTP server in the background
         PORT = random.randint(8000,9000)  # Random port to avoid conflicts
+        max_retries = 3
         
-        class CustomHandler(http.server.SimpleHTTPRequestHandler):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, directory=directory, **kwargs)
-            
-            def log_message(self, format, *args):
-                # Suppress log messages
-                pass
-                
-            def do_GET(self):
-                # Serve index.html for root path
-                if self.path == '/':
-                    self.path = '/index.html'
-                return http.server.SimpleHTTPRequestHandler.do_GET(self)
-        
-        try:
-            httpd = socketserver.TCPServer(("", PORT), CustomHandler)
-            print(f"\n✓ Local server started on port {PORT}")
-        except OSError as e:
-            print(f"× Port {PORT} is in use, trying another port...")
-            PORT = random.randint(9001,10000)
-            httpd = socketserver.TCPServer(("", PORT), CustomHandler)
-            print(f"✓ Local server started on port {PORT}")
+        for retry in range(max_retries):
+            try:
+                httpd = socketserver.TCPServer(("", PORT), CustomHandler)
+                print(f"\n✓ Local server started on port {PORT}")
+                break
+            except OSError as e:
+                if retry < max_retries - 1:
+                    print(f"× Port {PORT} is in use, trying another port...")
+                    PORT = random.randint(9001,10000)
+                else:
+                    print("× Failed to find an available port after multiple attempts")
+                    return None
         
         # Start the server in a separate process
         server_thread = threading.Thread(target=httpd.serve_forever)
