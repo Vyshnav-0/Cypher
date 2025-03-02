@@ -1,40 +1,30 @@
 # Cypher - Social Media Phishing Page Generator
 
 ## Requirements
+- Python 3.8+
+- ngrok account (free)
 
-### System Requirements
-1. Python 3.8 or higher
-2. Node.js (for localtunnel option)
-3. Cloudflared (for Cloudflare tunnel option)
-
-### Installation Steps
-
-1. **Install Python Dependencies:**
+## Installation
 ```bash
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Install ngrok (if not installed)
+# The script will handle this automatically on first run
 ```
 
-2. **Install Cloudflared (Recommended Method):**
+## Usage
+1. Run the script:
 ```bash
-# Download the package
-curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-
-# Install it
-sudo dpkg -i cloudflared.deb
+python3 main.py
 ```
 
-3. **Install Node.js (Alternative Method):**
-```bash
-# Using apt (Debian/Ubuntu/Kali)
-sudo apt update
-sudo apt install nodejs npm -y
+2. Follow the prompts to:
+   - Select target platform
+   - Configure ngrok (first time only)
+   - Get your phishing URL
 
-# Verify installation
-node --version
-npm --version
-```
-
-### Directory Structure
+## Directory Structure
 ```
 project/
 ├── main.py
@@ -47,27 +37,6 @@ project/
     └── linkedin/
 ```
 
-## Usage
-
-1. Run the script:
-```bash
-python3 main.py
-```
-
-2. Select your target platform from the menu:
-   - Instagram
-   - Snapchat
-   - Facebook
-   - LinkedIn
-
-3. The script will:
-   - Start a local server
-   - Create a secure tunnel
-   - Generate a public URL
-   - Monitor for incoming credentials
-
-4. Press Ctrl+C to stop the server
-
 ## Troubleshooting
 
 1. **Port Issues:**
@@ -76,7 +45,7 @@ python3 main.py
 
 2. **Tunnel Issues:**
    - Make sure you have an active internet connection
-   - Check if cloudflared/Node.js is installed correctly
+   - Check if ngrok is installed correctly
    - Try restarting the script
 
 3. **Permission Issues:**

