@@ -21,21 +21,9 @@ python3 main.py
 
 2. Follow the prompts to:
    - Select target platform
-   - Configure ngrok (first time only)
+   - Choose link generation method
+   - Configure ngrok (auth token or custom domain)
    - Get your phishing URL
-
-## Directory Structure
-```
-project/
-├── main.py
-├── requirements.txt
-├── README.md
-└── web/
-    ├── instagram/
-    ├── snapchat/
-    ├── facebook/
-    └── linkedin/
-```
 
 ## Troubleshooting
 
