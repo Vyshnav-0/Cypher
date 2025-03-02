@@ -1,0 +1,153 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    background-color: #f0f2f5;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.container {
+    width: 100%;
+    max-width: 1000px;
+    padding: 20px;
+}
+
+.content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 40px;
+}
+
+.left-content {
+    flex: 1;
+    padding-right: 32px;
+}
+
+.left-content img {
+    width: 300px;
+    margin: -28px;
+}
+
+.left-content h2 {
+    font-size: 28px;
+    font-weight: normal;
+    line-height: 32px;
+    width: 500px;
+    padding-right: 48px;
+    color: #1c1e21;
+}
+
+.right-content {
+    flex: 1;
+    max-width: 400px;
+}
+
+.login-form-container {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1);
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+input {
+    padding: 14px 16px;
+    font-size: 17px;
+    border: 1px solid #dddfe2;
+    border-radius: 6px;
+    outline: none;
+}
+
+input:focus {
+    border-color: #1877f2;
+    box-shadow: 0 0 0 2px #e7f3ff;
+}
+
+.login-button {
+    background-color: #1877f2;
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.login-button:hover {
+    background-color: #166fe5;
+}
+
+.forgot-password {
+    text-align: center;
+    color: #1877f2;
+    text-decoration: none;
+    font-size: 14px;
+    margin: 16px 0;
+    display: block;
+}
+
+.divider {
+    border-bottom: 1px solid #dadde1;
+    margin: 20px 0;
+}
+
+.create-account-button {
+    background-color: #42b72a;
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+    width: fit-content;
+    margin: 0 auto;
+    display: block;
+}
+
+.create-account-button:hover {
+    background-color: #36a420;
+}
+
+.create-page {
+    color: #1c1e21;
+    font-size: 14px;
+    text-align: center;
+    margin-top: 28px;
+}
+
+.create-page a {
+    color: #1c1e21;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+@media (max-width: 900px) {
+    .content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .left-content {
+        padding-right: 0;
+    }
+    
+    .left-content h2 {
+        width: 100%;
+        padding-right: 0;
+    }
+} 
