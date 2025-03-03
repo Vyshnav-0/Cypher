@@ -553,7 +553,66 @@ def generate_link(platform):
         print("Invalid choice!")
         return None
 
+def load_webhook():
+    webhook_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'webhook.txt')
+    try:
+        with open(webhook_file, 'r') as f:
+            return f.read().strip()
+    except:
+        return None
+
+def save_webhook(webhook_url):
+    webhook_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'webhook.txt')
+    with open(webhook_file, 'w') as f:
+        f.write(webhook_url)
+
+def setup_webhook():
+    # First try to load existing webhook
+    webhook = load_webhook()
+    
+    if webhook:
+        print("\nFound existing webhook URL")
+        print("Options:")
+        print("[1] Use existing webhook")
+        print("[2] Change webhook URL")
+        
+        choice = input("\nEnter your choice: ").strip()
+        
+        if choice == '1':
+            print("✓ Using existing webhook URL")
+            return webhook
+        elif choice == '2':
+            print("\nEnter new Discord webhook URL:")
+            new_webhook = input().strip()
+            if new_webhook:
+                save_webhook(new_webhook)
+                print("✓ New webhook URL saved")
+                return new_webhook
+            else:
+                print("× No webhook URL provided")
+                return None
+        else:
+            print("Invalid choice!")
+            return None
+    else:
+        print("\nNo webhook URL found")
+        print("Please enter your Discord webhook URL:")
+        webhook = input().strip()
+        if webhook:
+            save_webhook(webhook)
+            print("✓ Webhook URL saved")
+            return webhook
+        else:
+            print("× No webhook URL provided")
+            return None
+
 def main():
+    # Setup webhook first
+    webhook_url = setup_webhook()
+    if not webhook_url:
+        print("\nExiting... No webhook URL provided")
+        return
+
     while True:
         choice = print_menu()
         if choice == '1':
