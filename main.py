@@ -345,7 +345,7 @@ def serve_website(platform):
 
 def print_menu():
     # Create a Figlet object with a different font style
-    figlet = Figlet(font='slant')
+    figlet = Figlet(font='block')  # Changed font to 'block' for a more professional look
     
     # Text to display
     text = "Cypher"
@@ -353,8 +353,8 @@ def print_menu():
     # Generate the ASCII art
     ascii_art = figlet.renderText(text)
     
-    # Colors for rainbow effect
-    colors = ['red', 'yellow', 'green', 'cyan', 'blue', 'magenta']
+    # Colors for matrix-style effect
+    colors = ['green', 'cyan', 'green', 'cyan', 'green']  # Matrix-inspired color scheme
     
     # Get the width and height of the ASCII art
     ascii_lines = ascii_art.split('\n')
@@ -365,30 +365,30 @@ def print_menu():
     frame_width = max_width + 20  # Increased padding
     frame_width = frame_width + (frame_width % 2)  # Make sure width is even
     
-    # Create borders and empty lines
-    top_border = colored('╔' + '═' * (frame_width-2) + '╗', 'cyan')
-    bottom_border = colored('╚' + '═' * (frame_width-2) + '╝', 'cyan')
-    empty_line = colored('║' + ' ' * (frame_width-2) + '║', 'cyan')
+    # Create borders and empty lines with matrix-style characters
+    top_border = colored('╔' + '═' * (frame_width-2) + '╗', 'green')
+    bottom_border = colored('╚' + '═' * (frame_width-2) + '╝', 'green')
+    empty_line = colored('║' + ' ' * (frame_width-2) + '║', 'green')
     
-    # Create decorative top and bottom bars
+    # Create decorative top and bottom bars with matrix characters
     top_decoration = '█' + '▀' * (frame_width-4) + '█'
     bottom_decoration = '█' + '▄' * (frame_width-4) + '█'
     
     # Build the final output with background
     final_art = [
         top_border,
-        colored('║' + top_decoration + '║', 'cyan'),
+        colored('║' + top_decoration + '║', 'green'),
         empty_line
     ]
     
-    # Add the rainbow text with centered alignment
+    # Add the matrix-style text with centered alignment
     color_index = 0
     for line in ascii_lines:
         if line.strip():
             padding = (frame_width - 2 - len(line)) // 2
             colored_line = colored(line, colors[color_index % len(colors)])
             right_padding = frame_width - 2 - padding - len(line)
-            final_line = colored('║', 'cyan') + ' ' * padding + colored_line + ' ' * right_padding + colored('║', 'cyan')
+            final_line = colored('║', 'green') + ' ' * padding + colored_line + ' ' * right_padding + colored('║', 'green')
             final_art.append(final_line)
             color_index += 1
         else:
@@ -396,13 +396,13 @@ def print_menu():
     
     # Add menu options with better formatting
     menu_options = [
-        colored("[ Select your target ]", 'yellow'),
+        colored("[ Select your target ]", 'cyan'),
         "",
-        colored("[1]", 'cyan') + " Instagram",
-        colored("[2]", 'cyan') + " Snapchat",
-        colored("[3]", 'cyan') + " Facebook",
-        colored("[4]", 'cyan') + " LinkedIn",
-        colored("[5]", 'cyan') + " Exit",
+        colored("[1]", 'green') + " Instagram",
+        colored("[2]", 'green') + " Snapchat",
+        colored("[3]", 'green') + " Facebook",
+        colored("[4]", 'green') + " LinkedIn",
+        colored("[5]", 'green') + " Exit",
         "",
         colored("Enter your choice: ", 'white')
     ]
@@ -410,12 +410,12 @@ def print_menu():
     # Add menu options with proper centering
     for option in menu_options[:-1]:
         padding = (frame_width - 2 - len(option)) // 2
-        final_line = colored('║', 'cyan') + ' ' * padding + option + ' ' * (frame_width - 2 - padding - len(option)) + colored('║', 'cyan')
+        final_line = colored('║', 'green') + ' ' * padding + option + ' ' * (frame_width - 2 - padding - len(option)) + colored('║', 'green')
         final_art.append(final_line)
     
     final_art.extend([
         empty_line,
-        colored('║' + bottom_decoration + '║', 'cyan'),
+        colored('║' + bottom_decoration + '║', 'green'),
         bottom_border
     ])
     
