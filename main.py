@@ -362,13 +362,15 @@ def print_menu():
     height = len(ascii_lines)
     
     # Create decorative frame with proper width
-    frame_width = max_width + 8
+    frame_width = max_width + 20  # Increased padding
     frame_width = frame_width + (frame_width % 2)  # Make sure width is even
+    
+    # Create borders and empty lines
     top_border = colored('╔' + '═' * (frame_width-2) + '╗', 'cyan')
     bottom_border = colored('╚' + '═' * (frame_width-2) + '╝', 'cyan')
     empty_line = colored('║' + ' ' * (frame_width-2) + '║', 'cyan')
     
-    # Create decorative top and bottom bars with proper width
+    # Create decorative top and bottom bars
     top_decoration = '█' + '▀' * (frame_width-4) + '█'
     bottom_decoration = '█' + '▄' * (frame_width-4) + '█'
     
@@ -394,7 +396,7 @@ def print_menu():
     
     # Add menu options with better formatting
     menu_options = [
-        "[ Select your target ]",
+        colored("[ Select your target ]", 'yellow'),
         "",
         colored("[1]", 'cyan') + " Instagram",
         colored("[2]", 'cyan') + " Snapchat",
@@ -402,7 +404,7 @@ def print_menu():
         colored("[4]", 'cyan') + " LinkedIn",
         colored("[5]", 'cyan') + " Exit",
         "",
-        "Enter your choice: "
+        colored("Enter your choice: ", 'white')
     ]
     
     # Add menu options with proper centering
@@ -417,7 +419,7 @@ def print_menu():
         bottom_border
     ])
     
-    # Add matrix-style side decorations
+    # Add matrix-style side decorations with adjusted spacing
     side_dec_left = [
         colored('░▒▓█', 'green') + ' ',
         colored('▓▒░█', 'green') + ' ',
@@ -439,7 +441,7 @@ def print_menu():
         else:
             print(line)
     
-    # Add bottom matrix rain effect
+    # Add bottom matrix rain effect with adjusted width
     matrix_bottom = ''.join(colored('▀▄'[(i+random.randint(0,1))%2], 'green') for i in range(frame_width))
     print(' ' * 4 + matrix_bottom)
     
